@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>期末复习系统</title>
+    <title>期末复习系统 - 错题与收藏增强版</title>
     <!-- 引入 Tailwind CSS 进行快速样式还原 -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Mammoth.js 用于纯前端解析 Word (.docx) 文档 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
     <style>
         /* 修复锚点跳转被顶部导航遮挡的问题，并加入平滑滚动 */
         html {
@@ -87,7 +89,7 @@
 
     <!-- 顶部导航栏 (全局共享) -->
     <div class="top-nav h-12 w-full flex items-center justify-between px-3 md:px-4 text-white text-sm fixed top-0 z-50 shadow-md">
-        <!-- 左侧返回按钮 (默认隐藏) -->
+        <!-- 左侧返回按钮 -->
         <div id="nav-back-btn" class="flex items-center space-x-1 md:space-x-2 opacity-80 hover:opacity-100 cursor-pointer js-hidden transition-opacity">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
             <span id="nav-back-text" class="hidden sm:inline">返回</span>
@@ -98,7 +100,7 @@
             我的复习题库
         </div>
         
-        <!-- 右侧统计与操作 (默认隐藏) -->
+        <!-- 右侧统计与操作 -->
         <div id="nav-stats-container" class="flex items-center space-x-4 js-hidden">
             <div id="accuracy-display" class="mobile-hide font-bold text-[#1dc385] bg-white/10 px-3 py-1 rounded-full transition-all">
                 正确率: 0% (0/0)
@@ -204,29 +206,34 @@
             <button onclick="showView('dashboard')" class="mr-3 md:mr-4 text-gray-500 hover:text-gray-800 transition-colors bg-gray-50 p-2 rounded-full">
                 <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </button>
-            <h2 class="text-xl md:text-2xl font-bold text-gray-800">导入文本题目</h2>
+            <h2 class="text-xl md:text-2xl font-bold text-gray-800">导入题目</h2>
         </div>
         
+        <!-- 题库名称 -->
         <div class="mb-5 md:mb-6">
             <label class="block text-sm font-bold text-gray-700 mb-2">题库名称 <span class="text-red-500">*</span></label>
             <input type="text" id="test-name-input" placeholder="例如：软件工程期末复习 第1-3章" class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm md:text-base">
         </div>
 
-        <p class="text-gray-500 mb-2 text-xs md:text-sm">请将包含选项和答案的题目文本粘贴到下方文本框中：</p>
-        <textarea id="raw-text" class="w-full h-[40vh] md:h-80 p-3 md:p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-xs md:text-sm resize-none mb-5 md:mb-6">第1章课堂习题
-2.软件危机主要包含哪两方面的问题？
-A. 软件的开发和测试
-B. 软件的维护和升级
-C. 如何开发软件以满足需求，以及如何维护数量膨胀的已有软件
-D. 软件的成本控制和质量控制
-答案：C
- 
-3.下列哪项不是软件危机的典型表现？
-A. 软件开发成本和进度的估计不准确
-B. 软件产品通常没有适当的文档资料
-C. 软件系统能够轻松适应新的硬件环境
-D. 用户对“已完成的”软件系统不满意
-答案：C</textarea>
+        <!-- Word 上传区 -->
+        <div class="mb-6">
+            <label class="block text-sm font-bold text-gray-700 mb-2">方式一：上传 Word 文档自动解析 (推荐)</label>
+            <div class="p-6 border-2 border-dashed border-blue-200 bg-blue-50/50 hover:bg-blue-50 rounded-lg text-center cursor-pointer transition-colors relative" id="upload-docx-zone">
+                <input type="file" id="docx-upload-input" accept=".docx" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                <svg class="mx-auto h-8 w-8 text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <p class="text-sm font-medium text-blue-700">点击选择或将 .docx 文件拖拽至此</p>
+                <p class="text-xs text-blue-500/80 mt-1">系统将瞬间提取文档内容填充至下方文本框</p>
+                <div id="upload-success-msg" class="text-green-600 text-sm mt-3 font-medium text-center js-hidden">
+                    ✅ 提取成功！请核对下方文本无误后，点击底部按钮保存。
+                </div>
+            </div>
+        </div>
+
+        <!-- 文本域输入区 -->
+        <label class="block text-sm font-bold text-gray-700 mb-2">方式二：直接粘贴文本</label>
+        <p class="text-gray-500 mb-2 text-xs md:text-sm">确保题目包含了类似 "A. xx" 的选项以及 "答案：A" 字眼即可。</p>
+        <textarea id="raw-text" class="w-full h-[40vh] md:h-80 p-3 md:p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-xs md:text-sm resize-none mb-5 md:mb-6" placeholder="请在此处粘贴包含选项和答案的题目内容..."></textarea>
+        
         <button id="generate-btn" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition duration-200 shadow-sm text-base">
             解析并保存题库
         </button>
@@ -312,8 +319,8 @@ D. 用户对“已完成的”软件系统不满意
         let localDB = null;
         let testsData = []; 
         let currentTestId = null;
-        let currentMode = 'practice'; // 'practice' | 'recite' 全局模式控制
-        let currentFilter = 'all';    // 'all' | 'wrong' | 'favorite' 题目过滤模式
+        let currentMode = 'practice'; // 'practice' | 'recite'
+        let currentFilter = 'all';    // 'all' | 'wrong' | 'favorite'
 
         // --- DOM 元素引用 ---
         const views = {
@@ -332,8 +339,9 @@ D. 用户对“已完成的”软件系统不满意
         const modePracticeBtn = document.getElementById('mode-practice-btn');
         const modeReciteBtn = document.getElementById('mode-recite-btn');
         const backToTopBtn = document.getElementById('back-to-top');
+        const uploadSuccessMsg = document.getElementById('upload-success-msg');
 
-        // --- 抽屉导航栏引用及逻辑 ---
+        // --- 抽屉导航栏逻辑 ---
         const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
         const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
         const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -365,7 +373,7 @@ D. 用户对“已完成的”软件系统不满意
 
         function hideLoading() {
             loadingOverlay.classList.add('opacity-0');
-            setTimeout(() => loadingOverlay.classList.add('js-hidden'), 200); // 等待透明度过渡结束
+            setTimeout(() => loadingOverlay.classList.add('js-hidden'), 200); 
         }
 
         // --- 滚动监听 (回到顶部按钮) ---
@@ -388,7 +396,7 @@ D. 用户对“已完成的”软件系统不满意
                 navStatsContainer.classList.add('js-hidden');
                 renderDashboard();
             } else if (viewName === 'input') {
-                topNavTitle.innerText = '导入新题库';
+                topNavTitle.innerText = '导入题目';
                 navBackBtn.classList.add('js-hidden');
                 navStatsContainer.classList.add('js-hidden');
             } else if (viewName === 'collectionList') {
@@ -401,14 +409,12 @@ D. 用户对“已完成的”软件系统不满意
         async function initDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open('QuizReviewDB', 2); 
-                
                 request.onupgradeneeded = (event) => {
                     const db = event.target.result;
                     if (!db.objectStoreNames.contains('tests')) {
                         db.createObjectStore('tests', { keyPath: 'id' });
                     }
                 };
-                
                 request.onsuccess = (event) => {
                     localDB = event.target.result;
                     resolve();
@@ -426,16 +432,12 @@ D. 用户对“已完成的”软件系统不满意
                 
                 request.onsuccess = () => {
                     testsData = request.result || [];
-                    
-                    // 兼容旧数据结构
                     testsData = testsData.filter(t => t.id !== 'wrong_book');
                     testsData.forEach(t => {
                         if (!t.wrongIds) t.wrongIds = [];
                         if (!t.favoriteIds) t.favoriteIds = [];
                         if (!t.answers) t.answers = {};
                     });
-
-                    // 降序排序
                     testsData.sort((a, b) => b.createdAt - a.createdAt);
                     resolve();
                 };
@@ -476,7 +478,7 @@ D. 用户对“已完成的”软件系统不满意
                 showView('dashboard');
             } catch (error) {
                 console.error("本地数据库初始化失败:", error);
-                alert("无法连接到浏览器的本地数据库，您的数据可能无法永久保存，请检查浏览器无痕模式等设置。");
+                alert("无法连接到本地数据库，数据可能无法永久保存，请检查浏览器无痕模式等设置。");
                 hideLoading();
                 showView('dashboard');
             }
@@ -503,7 +505,6 @@ D. 用户对“已完成的”软件系统不满意
             } else {
                 emptyState.classList.add('js-hidden');
                 
-                // 为了提高渲染速度，我们用字符串一次性拼接
                 let cardsHtml = '';
                 testsData.forEach(test => {
                     const stats = calculateStats(test, test.questions);
@@ -534,7 +535,6 @@ D. 用户对“已完成的”软件系统不满意
                 });
                 listContainer.innerHTML = cardsHtml;
 
-                // 绑定点击事件委托，防止卡顿
                 listContainer.onclick = async (e) => {
                     const deleteBtn = e.target.closest('.delete-btn');
                     const card = e.target.closest('.test-card');
@@ -555,7 +555,7 @@ D. 用户对“已完成的”软件系统不满意
             }
         }
 
-        // --- 打开集合分类列表 (错题本/收藏夹) ---
+        // --- 打开集合分类列表 ---
         window.openCollectionList = function(type) {
             const titleEl = document.getElementById('collection-title');
             const subTitleEl = document.getElementById('collection-subtitle');
@@ -617,8 +617,6 @@ D. 用户对“已完成的”软件系统不满意
         // --- 打开刷题界面 ---
         window.openTest = function(testId, filterType = 'all') {
             showLoading('正在加载题库...');
-            
-            // 使用 setTimeout 将耗时渲染放到下一个事件循环，确保 loading 能够显示出来
             setTimeout(() => {
                 currentFilter = filterType;
                 currentMode = 'practice'; 
@@ -627,10 +625,55 @@ D. 用户对“已完成的”软件系统不满意
             }, 30);
         };
 
-        // --- 核心解析逻辑 ---
+        // ================= 新增：Word (.docx) 文件解析逻辑 =================
+        document.getElementById('docx-upload-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 1. 如果题库名称为空，自动去掉 .docx 后缀作为题库名
+            const nameInput = document.getElementById('test-name-input');
+            if (!nameInput.value.trim()) {
+                nameInput.value = file.name.replace(/\.docx$/i, '');
+            }
+
+            showLoading("正在解析 Word 文档...");
+            uploadSuccessMsg.classList.add('js-hidden');
+            
+            // 2. 利用 FileReader 读取文件缓冲，然后交给 mammoth 处理
+            const reader = new FileReader();
+            reader.onload = function(loadEvent) {
+                const arrayBuffer = loadEvent.target.result;
+                // mammoth 将 docx 转换为纯文本
+                mammoth.extractRawText({arrayBuffer: arrayBuffer})
+                    .then(function(result) {
+                        let text = result.value;
+                        // 稍微清理一下过多的连续空行，保持格式整洁
+                        text = text.replace(/\n\s*\n\s*\n/g, '\n\n'); 
+                        
+                        document.getElementById('raw-text').value = text;
+                        uploadSuccessMsg.classList.remove('js-hidden');
+                        
+                        hideLoading();
+                    })
+                    .catch(function(error) {
+                        hideLoading();
+                        console.error("Mammoth 解析错误:", error);
+                        alert("解析失败，请确保您上传的是现代的 Word 文档（.docx 格式）。");
+                    });
+            };
+            
+            // 触发读取
+            reader.readAsArrayBuffer(file);
+            
+            // 为了允许重复选择同一个文件，将 input 值清空
+            e.target.value = '';
+        });
+
+        // --- 核心解析逻辑 (通用: 无论手贴还是 Word 导入的文本) ---
         function parseText(text) {
             const questions = [];
-            text = text.replace(/\u00a0/g, ' '); 
+            // 将普通制表符、特殊空格替换为普通空格，增强对 Word 文本的容错率
+            text = text.replace(/[\u00a0\t\f\v]/g, ' '); 
             
             const blocks = ('\n' + text).split(/\n(?=\s*\d+[\.、])/).filter(b => b.trim());
             let globalIdCounter = 1; 
@@ -642,13 +685,13 @@ D. 用户对“已完成的”软件系统不满意
                 let answer = '';
                 let analysis = '';
                 
-                const ansMatch = block.match(/(?:【答案】|参考答案[：:]?|答案[：:]?)\s*([A-D√×]+)/i);
-                if (ansMatch) answer = ansMatch[1].trim().toUpperCase();
+                const ansMatch = block.match(/(?:【答\s*案】|参考答案[：:]?|答案[：:]?)\s*([A-D√×]+)/i);
+                if (ansMatch) answer = ansMatch[1].replace(/\s/g, '').toUpperCase();
 
-                const analysisMatch = block.match(/(?:【解析】|参考解析[：:]?|解析[：:]?)\s*([\s\S]*)$/i);
+                const analysisMatch = block.match(/(?:【解\s*析】|参考解析[：:]?|解析[：:]?)\s*([\s\S]*)$/i);
                 if (analysisMatch) analysis = analysisMatch[1].trim();
 
-                let cleanBlock = block.replace(/\n?\s*(?:【答案】|参考答案[：:]?|答案[：:]?)[\s\S]*/i, '').trim();
+                let cleanBlock = block.replace(/\n?\s*(?:【答\s*案】|参考答案[：:]?|答案[：:]?)[\s\S]*/i, '').trim();
 
                 const options = [];
                 const optionRegex = /([A-D])[\.、]\s*(.*?)(?=\n\s*[A-D][\.、]|$)/gs;
@@ -708,7 +751,7 @@ D. 用户对“已完成的”软件系统不满意
             document.getElementById('sidebar-progress').innerText = `${stats.answeredCount}/${stats.total}`;
         }
 
-        // --- 渲染单道题目的 HTML (返回字符串以提高性能) ---
+        // --- 渲染单道题目的 HTML ---
         function generateQuestionHTML(q, displayIndex, mode, userAns, isFavorite, filterType) {
             let optionsHTML = '';
             let isAlreadyAnswered = (userAns !== undefined && userAns !== null);
@@ -861,7 +904,7 @@ D. 用户对“已完成的”软件系统不满意
             navBackBtn.classList.remove('js-hidden');
             navBackText.innerText = currentFilter === 'all' ? '返回首页' : (currentFilter === 'wrong' ? '错题分类' : '收藏分类');
             navBackBtn.onclick = () => {
-                window.closeSidebar(); // 确保离开时关闭抽屉
+                window.closeSidebar(); 
                 if (currentFilter === 'all') showView('dashboard');
                 else openCollectionList(currentFilter);
             };
@@ -879,7 +922,6 @@ D. 用户对“已完成的”软件系统不满意
             const qContainer = document.getElementById('questions-container');
             const gContainer = document.getElementById('grid-container');
             
-            // 核心优化：使用数组拼接后一次性赋值，彻底消除卡顿
             if (displayQuestions.length === 0) {
                 qContainer.innerHTML = `<div class="text-center py-20 text-gray-400">当前分类下没有题目哦！</div>`;
                 gContainer.innerHTML = '';
@@ -915,7 +957,8 @@ D. 用户对“已完成的”软件系统不满意
 
         document.getElementById('create-new-btn').addEventListener('click', () => {
             document.getElementById('test-name-input').value = '';
-            document.getElementById('raw-text').value = ''; // 可选：清空上次粘贴的内容
+            document.getElementById('raw-text').value = ''; 
+            uploadSuccessMsg.classList.add('js-hidden'); // 隐藏上传成功提示
             showView('input');
         });
 
@@ -966,20 +1009,21 @@ D. 用户对“已完成的”软件系统不满意
             }, 30);
         });
 
+        // 点击解析并保存
         document.getElementById('generate-btn').addEventListener('click', async () => {
             const nameInput = document.getElementById('test-name-input').value.trim();
-            if (!nameInput) return alert("请输入题库名称！");
+            if (!nameInput) return alert("请输入或自动生成题库名称！");
 
             const text = document.getElementById('raw-text').value;
-            if (!text.trim()) return alert("请输入题目内容！");
+            if (!text.trim()) return alert("题目内容不能为空，请粘贴或上传文档！");
 
-            showLoading("正在解析题目...");
+            showLoading("正在解析题目并构建题库...");
             
             setTimeout(async () => {
                 const questions = parseText(text);
                 if (questions.length === 0) {
                     hideLoading();
-                    alert("未能解析出题目，请检查格式。");
+                    alert("未能解析出任何题目！\n请确保每道题有明确的题号(如：1.)、选项(如：A.)、以及答案(如：答案：A)。");
                     return;
                 }
                 
@@ -994,7 +1038,6 @@ D. 用户对“已完成的”软件系统不满意
                 const newId = await saveFullTest({ ...testData, id: 'test_' + Date.now(), createdAt: Date.now() });
                 await loadTests();
                 
-                // 解析完成后直接进入题库
                 currentFilter = 'all';
                 currentMode = 'practice';
                 renderReviewTest(newId);
@@ -1002,7 +1045,7 @@ D. 用户对“已完成的”软件系统不满意
             }, 50);
         });
 
-        // 处理作答、收藏、移出错题本事件委托 (避免给每个元素绑定事件导致卡顿)
+        // 处理作答、收藏、移出错题本事件委托 
         document.getElementById('questions-container').addEventListener('click', async (e) => {
             const test = testsData.find(t => t.id === currentTestId);
             if (!test) return;
@@ -1041,7 +1084,6 @@ D. 用户对“已完成的”软件系统不满意
                     delete test.answers[qId];
                     await saveFullTest(test);
                     
-                    // 局部移除DOM元素，避免整个页面重新渲染闪烁
                     const qDom = document.getElementById(`q-${qId}`);
                     if(qDom) {
                         qDom.style.transition = 'all 0.3s';
@@ -1053,7 +1095,6 @@ D. 用户对“已完成的”软件系统不满意
                         setTimeout(() => qDom.remove(), 300);
                     }
                     
-                    // 更新数量
                     const countSpan = document.getElementById('total-q-count');
                     countSpan.innerText = parseInt(countSpan.innerText) - 1;
                 }
@@ -1124,7 +1165,6 @@ D. 用户对“已完成的”软件系统不满意
             }
 
             updateStatsUI(test, displayQuestions);
-            // 异步保存，不阻塞UI线程
             saveFullTest(test);
         });
 
